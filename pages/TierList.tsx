@@ -1,14 +1,26 @@
 import React from 'react';
-import { HERO_DB } from '../constants';
-import { Hero } from '../types';
+import { useGameData } from '../contexts/GameDataContext';
 import HeroCard from '../components/HeroCard';
+import { Loader2 } from 'lucide-react';
 
 const TierList: React.FC = () => {
   const tiers = ['S+', 'S', 'A', 'B', 'C'];
+  const { heroData, isLoading } = useGameData();
 
   const getHeroesByTier = (tier: string) => {
-    return HERO_DB.filter(h => h.tier === tier);
+    return heroData.filter(h => h.tier === tier);
   };
+
+  if (isLoading) {
+    return (
+        <div className="min-h-screen bg-dark flex items-center justify-center">
+            <div className="flex flex-col items-center gap-4">
+                <Loader2 className="w-10 h-10 text-primary animate-spin" />
+                <p className="text-slate-400">티어 리스트 불러오는 중...</p>
+            </div>
+        </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-dark pb-10">

@@ -1,9 +1,10 @@
 import React, { useState, useMemo } from 'react';
-import { STRATEGY_DB } from '../constants';
-import { Search, Sword, Skull, Castle, ShieldAlert, Users, ChevronRight, Flame, Crown, Shield } from 'lucide-react';
+import { Search, Sword, Skull, Castle, ShieldAlert, Users, ChevronRight, Flame, Crown, Shield, Loader2 } from 'lucide-react';
+import { useGameData } from '../contexts/GameDataContext';
 
 const Strategy: React.FC = () => {
     const [activeTab, setActiveTab] = useState('castle');
+    const { strategyData, isLoading } = useGameData();
 
     // --------------------------------------------------
     // 1. 공성전 UI
@@ -21,7 +22,7 @@ const Strategy: React.FC = () => {
             </div>
 
             <div className="grid grid-cols-4 md:grid-cols-7 gap-2 mb-6">
-                {STRATEGY_DB.castleRush.map(item => (
+                {strategyData.castleRush.map(item => (
                     <div key={item.id} className="bg-slate-800 p-3 rounded-lg text-center border border-slate-700 shadow-sm hover:border-amber-500/50 transition-colors">
                         <div className="text-xs text-slate-400 mb-1">{item.day}</div>
                         <div className="font-bold text-sm text-white">{item.boss}</div>
@@ -30,7 +31,7 @@ const Strategy: React.FC = () => {
             </div>
 
             <div className="grid gap-6">
-                {STRATEGY_DB.castleRush.map(item => (
+                {strategyData.castleRush.map(item => (
                     <div key={item.id} className="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden shadow-lg hover:shadow-xl transition-shadow">
                         <div className="bg-slate-900/50 px-6 py-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-slate-700/50">
                             <h3 className="text-xl font-bold text-white flex items-center">
@@ -121,7 +122,7 @@ const Strategy: React.FC = () => {
             {/* 파괴의 신 */}
             <div className="space-y-6">
                 <h3 className="text-xl font-bold text-white border-l-4 border-purple-500 pl-4 py-1">파괴의 신</h3>
-                {STRATEGY_DB.advent.destruction.map((item, idx) => (
+                {strategyData.advent.destruction.map((item, idx) => (
                     <div key={idx} className="bg-slate-800 rounded-xl border border-slate-700 p-6 shadow-md">
                         <div className="flex justify-between items-center mb-6 border-b border-slate-700 pb-4">
                             <h4 className="text-white font-bold text-lg">{item.title}</h4>
@@ -166,7 +167,7 @@ const Strategy: React.FC = () => {
             {/* 연희 원정대 */}
             <div className="space-y-6">
                 <h3 className="text-xl font-bold text-white border-l-4 border-pink-500 pl-4 py-1">연희 원정대</h3>
-                    {STRATEGY_DB.advent.yeonhee.map((item, idx) => (
+                    {strategyData.advent.yeonhee.map((item, idx) => (
                     <div key={idx} className="bg-slate-800 rounded-xl border border-slate-700 p-6 shadow-md">
                         <div className="flex justify-between items-center mb-6 border-b border-slate-700 pb-4">
                             <h4 className="text-white font-bold text-lg">{item.title}</h4>
@@ -226,7 +227,7 @@ const Strategy: React.FC = () => {
             </div>
 
             <div className="grid gap-6">
-                {STRATEGY_DB.totalWar.map((deck, idx) => (
+                {strategyData.totalWar.map((deck, idx) => (
                     <div key={idx} className="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden hover:border-emerald-500/30 transition-colors">
                         <div className="p-6 border-b border-slate-700 bg-gradient-to-r from-slate-800 to-slate-800/50">
                             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 mb-4">
@@ -276,9 +277,9 @@ const Strategy: React.FC = () => {
     const GuildWarSearch = () => {
         const [query, setQuery] = useState('');
         const filtered = useMemo(() => {
-            if(!query) return STRATEGY_DB.guildWar;
-            return STRATEGY_DB.guildWar.filter(g => g.enemyDeck.includes(query));
-        }, [query]);
+            if(!query) return strategyData.guildWar;
+            return strategyData.guildWar.filter(g => g.enemyDeck.includes(query));
+        }, [query, strategyData.guildWar]);
 
         return (
             <div className="space-y-6 animate-in fade-in duration-500">
@@ -338,6 +339,17 @@ const Strategy: React.FC = () => {
                             </div>
                         ))
                     )}
+                </div>
+            </div>
+        );
+    }
+
+    if (isLoading) {
+        return (
+            <div className="min-h-screen bg-dark flex items-center justify-center">
+                <div className="flex flex-col items-center gap-4">
+                    <Loader2 className="w-10 h-10 text-primary animate-spin" />
+                    <p className="text-slate-400">최신 전략 데이터 불러오는 중...</p>
                 </div>
             </div>
         );

@@ -1,16 +1,17 @@
 import React, { useState, useMemo } from 'react';
-import { HERO_DB } from '../constants';
 import HeroCard from '../components/HeroCard';
 import { HeroType, Element, Rarity } from '../types';
-import { Search, Filter } from 'lucide-react';
+import { Search, Filter, Loader2 } from 'lucide-react';
+import { useGameData } from '../contexts/GameDataContext';
 
 const Heroes: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedType, setSelectedType] = useState<string>('ALL');
   const [selectedElement, setSelectedElement] = useState<string>('ALL');
+  const { heroData, isLoading } = useGameData();
 
   const filteredHeroes = useMemo(() => {
-    return HERO_DB.filter(hero => {
+    return heroData.filter(hero => {
       const matchesSearch = hero.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
                             hero.title.toLowerCase().includes(searchTerm.toLowerCase());
       const matchesType = selectedType === 'ALL' || hero.type === selectedType;
@@ -18,7 +19,18 @@ const Heroes: React.FC = () => {
       
       return matchesSearch && matchesType && matchesElement;
     });
-  }, [searchTerm, selectedType, selectedElement]);
+  }, [searchTerm, selectedType, selectedElement, heroData]);
+
+  if (isLoading) {
+      return (
+          <div className="min-h-screen bg-dark flex items-center justify-center">
+              <div className="flex flex-col items-center gap-4">
+                  <Loader2 className="w-10 h-10 text-primary animate-spin" />
+                  <p className="text-slate-400">영웅 데이터 불러오는 중...</p>
+              </div>
+          </div>
+      );
+  }
 
   return (
     <div className="min-h-screen bg-dark pb-10">

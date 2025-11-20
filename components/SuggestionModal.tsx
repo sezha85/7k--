@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Send, Check, Lock, Unlock, AlertCircle, Clock, Trash2, CloudOff, Cloud, ExternalLink } from 'lucide-react';
+import { X, Send, Check, Lock, Unlock, AlertCircle, Clock, Trash2, CloudOff, Cloud } from 'lucide-react';
 import { Suggestion } from '../types';
 import { dbService } from '../services/firebase';
 

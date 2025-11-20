@@ -9,9 +9,11 @@ import {
     onSnapshot, 
     query, 
     orderBy,
+    setDoc,
+    getDoc,
     Firestore
 } from 'firebase/firestore';
-import { Suggestion } from '../types';
+import { Suggestion, StrategyDB, Hero } from '../types';
 
 // 사용자가 제공한 Firebase 설정값
 const firebaseConfig = {
@@ -51,10 +53,9 @@ const LOCAL_UPDATE_EVENT = 'local-db-update';
 export const dbService = {
     isConfigured: () => isConfigured && !!db,
 
-    // 데이터 실시간 구독 (변경사항이 생기면 자동으로 화면을 갱신해줍니다)
+    // 데이터 실시간 구독
     subscribe: (callback: (data: Suggestion[]) => void) => {
         if (isConfigured && db) {
-            // [온라인 모드] Firebase DB를 실시간으로 감시합니다.
             try {
                 const q = query(collection(db, "suggestions"), orderBy("createdAt", "desc"));
                 return onSnapshot(q, (snapshot) => {
@@ -65,7 +66,6 @@ export const dbService = {
                     callback(suggestions);
                 }, (error) => {
                     console.error("데이터 불러오기 실패 (권한 문제일 수 있음):", error);
-                    // 실패 시 로컬 데이터라도 보여주기 위한 폴백
                     callback(getLocalSuggestions());
                 });
             } catch (e) {
@@ -74,7 +74,6 @@ export const dbService = {
                 return () => {};
             }
         } else {
-            // [로컬 모드] 브라우저 저장소를 감시합니다.
             callback(getLocalSuggestions());
             
             const handleUpdate = () => callback(getLocalSuggestions());
@@ -116,6 +115,51 @@ export const dbService = {
             const current = getLocalSuggestions();
             const updated = current.filter(s => s.id !== id);
             saveLocalSuggestions(updated);
+        }
+    },
+
+    // --- 게임 데이터 관리 (Admin용) ---
+    
+    // 게임 데이터 저장 (StrategyDB 또는 Hero[])
+    saveGameData: async (type: 'strategy' | 'heroes', data: any) => {
+        if (!isConfigured || !db) throw new Error("DB 미연결");
+        await setDoc(doc(db, "game_data", type), { data });
+        
+        // 업데이트 날짜 기록
+        const date = new Date();
+        const dateString = `${date.getFullYear()}.${String(date.getMonth() + 1).padStart(2, '0')}.${String(date.getDate()).padStart(2, '0')}`;
+        await setDoc(doc(db, "game_data", "metadata"), { lastUpdated: dateString });
+    },
+
+    // 게임 데이터 불러오기
+    getGameData: async (type: 'strategy' | 'heroes') => {
+        if (!isConfigured || !db) return null;
+        try {
+            const docRef = doc(db, "game_data", type);
+            const docSnap = await getDoc(docRef);
+            if (docSnap.exists()) {
+                return docSnap.data().data;
+            }
+            return null;
+        } catch (e) {
+            console.error("게임 데이터 로드 실패:", e);
+            return null;
+        }
+    },
+
+    // 메타데이터(날짜) 불러오기
+    getMetadata: async () => {
+        if (!isConfigured || !db) return null;
+        try {
+            const docRef = doc(db, "game_data", "metadata");
+            const docSnap = await getDoc(docRef);
+            if (docSnap.exists()) {
+                return docSnap.data().lastUpdated;
+            }
+            return null;
+        } catch (e) {
+            console.error("메타데이터 로드 실패:", e);
+            return null;
         }
     }
 };
