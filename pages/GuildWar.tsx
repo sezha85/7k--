@@ -27,6 +27,8 @@ type CounterDeck = {
   back: string[];
   skillOrder: string;
   memo: string;
+  isRecommended?: boolean;
+  priority?: number;
 };
 
 type FormState = {
@@ -40,6 +42,8 @@ type FormState = {
   memo: string;
   enemyDeckId?: string;
   skillOrder?: string;
+  isRecommended?: boolean;
+  priorityText?: string;
 };
 
 const firebaseConfig = {
@@ -94,6 +98,8 @@ const SAMPLE_COUNTER_DECKS: CounterDeck[] = [
     back: ['란드그리드', '태오'],
     skillOrder: '여포1 → 여포2 → 태오1',
     memo: '여포 후열/암살자/약치100/속공 1순위. 태오 약공100, 란드 속공 3순위. 린 스킬 예약 끊는 흐름이 핵심.',
+    isRecommended: true,
+    priority: 1,
   },
   {
     id: 'counter-milbas',
@@ -106,6 +112,8 @@ const SAMPLE_COUNTER_DECKS: CounterDeck[] = [
     back: [],
     skillOrder: '바네사1 → 스쿨드2 → 밀리아2',
     memo: '전원 주술사 / 효적100 / 극속 기준.',
+    isRecommended: true,
+    priority: 1,
   },
 ];
 
@@ -129,6 +137,8 @@ const emptyCounterForm: FormState = {
   memo: '',
   enemyDeckId: '',
   skillOrder: '',
+  isRecommended: false,
+  priorityText: '1',
 };
 
 const app = getApps().length ? getApps()[0] : initializeApp(firebaseConfig);
@@ -137,6 +147,15 @@ const db = getFirestore(app);
 const normalize = (value: string) => value.replace(/\s+/g, '').toLowerCase();
 const splitList = (value: string) => value.split(/[\/,.\n ]+/).map(item => item.trim()).filter(Boolean);
 const joinList = (items?: string[]) => (items && items.length > 0 ? items.join(' / ') : '');
+const toPriority = (value?: string) => {
+  const parsed = Number(value || '999');
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 999;
+};
+
+const sortCounters = (items: CounterDeck[]) => [...items].sort((a, b) => {
+  if (!!a.isRecommended !== !!b.isRecommended) return a.isRecommended ? -1 : 1;
+  return (a.priority ?? 999) - (b.priority ?? 999);
+});
 
 const skillParts = (skillOrder: string) =>
   skillOrder
@@ -146,7 +165,7 @@ const skillParts = (skillOrder: string) =>
     .filter(Boolean);
 
 const normalizeEnemy = (deck: any): EnemyDeck => ({ ...deck, pets: deck.pets || [] });
-const normalizeCounter = (deck: any): CounterDeck => ({ ...deck, pets: deck.pets || [] });
+const normalizeCounter = (deck: any): CounterDeck => ({ ...deck, pets: deck.pets || [], isRecommended: !!deck.isRecommended, priority: deck.priority ?? 999 });
 
 const toEnemyPayload = (form: FormState): Omit<EnemyDeck, 'id'> => ({
   name: form.name.trim() || splitList(form.heroesText).join(' '),
@@ -168,6 +187,8 @@ const toCounterPayload = (form: FormState): Omit<CounterDeck, 'id'> => ({
   back: splitList(form.backText),
   skillOrder: form.skillOrder?.trim() || '',
   memo: form.memo.trim(),
+  isRecommended: !!form.isRecommended,
+  priority: toPriority(form.priorityText),
 });
 
 const GuildWar: React.FC = () => {
@@ -338,19 +359,22 @@ const GuildWar: React.FC = () => {
       backText: deck.back.join(' '),
       skillOrder: deck.skillOrder,
       memo: deck.memo,
+      isRecommended: !!deck.isRecommended,
+      priorityText: String(deck.priority ?? 999),
     });
     window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
   };
 
   const copyDeckText = async (enemy: EnemyDeck, counters: CounterDeck[]) => {
+    const sortedCounters = sortCounters(counters);
     const text = [
       `[상대덱] ${joinList(enemy.heroes)}`,
       `펫: ${joinList(enemy.pets) || '-'}`,
       `진형: ${enemy.formation}`,
       enemy.memo ? `메모: ${enemy.memo}` : '',
       '',
-      ...counters.flatMap((counter, index) => [
-        `[카운터 ${index + 1}] ${counter.name}`,
+      ...sortedCounters.flatMap((counter, index) => [
+        `[카운터 ${index + 1}] ${counter.isRecommended ? '★ 추천 ' : ''}${counter.name}`,
         `영웅: ${joinList(counter.heroes)}`,
         `펫: ${joinList(counter.pets) || '-'}`,
         `진형: ${counter.formation}`,
@@ -401,7 +425,7 @@ const GuildWar: React.FC = () => {
           {filteredEnemyDecks.length === 0 ? (
             <div className="bg-slate-900 border border-slate-800 rounded-2xl p-8 text-center text-slate-500">검색 결과가 없습니다. 관리자에서 상대덱을 추가해주세요.</div>
           ) : filteredEnemyDecks.map(enemy => {
-            const counters = counterDecks.filter(counter => counter.enemyDeckId === enemy.id);
+            const counters = sortCounters(counterDecks.filter(counter => counter.enemyDeckId === enemy.id));
             return (
               <article key={enemy.id} className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
                 <div className="p-5 border-b border-slate-800 bg-slate-950/40">
@@ -427,10 +451,14 @@ const GuildWar: React.FC = () => {
                     {isAdmin && <div className="flex gap-2"><button onClick={() => editEnemy(enemy)} className="text-xs bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg px-2 py-1 text-slate-300 flex items-center gap-1"><Edit3 size={12} />상대 수정</button><button onClick={() => deleteEnemyDeck(enemy.id)} className="text-xs bg-red-950/40 hover:bg-red-900/50 border border-red-900 rounded-lg px-2 py-1 text-red-200 flex items-center gap-1"><Trash2 size={12} />삭제</button></div>}
                   </div>
 
-                  {counters.length === 0 ? <div className="bg-slate-950/50 border border-slate-800 rounded-xl p-4 text-sm text-slate-500">등록된 카운터덱이 없습니다.</div> : counters.map(counter => (
-                    <div key={counter.id} className="bg-slate-950/60 border border-slate-800 rounded-2xl p-4 space-y-4">
+                  {counters.length === 0 ? <div className="bg-slate-950/50 border border-slate-800 rounded-xl p-4 text-sm text-slate-500">등록된 카운터덱이 없습니다.</div> : counters.map((counter, index) => (
+                    <div key={counter.id} className={`border rounded-2xl p-4 space-y-4 ${counter.isRecommended ? 'bg-amber-950/20 border-amber-700/50' : 'bg-slate-950/60 border-slate-800'}`}>
                       <div className="flex items-start justify-between gap-3">
                         <div>
+                          <div className="flex items-center gap-2 mb-2">
+                            {counter.isRecommended && <span className="bg-primary text-slate-950 text-[11px] font-black rounded-full px-2 py-1">★ 추천 {index + 1}</span>}
+                            {!counter.isRecommended && <span className="bg-slate-800 text-slate-400 text-[11px] font-bold rounded-full px-2 py-1">카운터 {index + 1}</span>}
+                          </div>
                           <h4 className="text-lg font-black text-white mb-2">{counter.name}</h4>
                           <div className="flex flex-wrap gap-2">{counter.heroes.map(hero => <span key={hero} className="bg-primary/10 border border-primary/30 text-amber-100 rounded-xl px-3 py-1 text-sm font-bold">{hero}</span>)}</div>
                         </div>
@@ -459,7 +487,7 @@ const GuildWar: React.FC = () => {
             </div>
           ) : (
             <div className="space-y-8">
-              <div className="flex items-center justify-between gap-3"><div><h2 className="font-black text-white text-xl">관리자 입력</h2><p className="text-sm text-slate-500">영웅명과 펫은 띄어쓰기, /, 쉼표로 구분 가능합니다.</p></div><button onClick={() => setIsAdmin(false)} className="bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-300 flex items-center gap-1"><X size={14} />닫기</button></div>
+              <div className="flex items-center justify-between gap-3"><div><h2 className="font-black text-white text-xl">관리자 입력</h2><p className="text-sm text-slate-500">추천 카운터 체크 시 검색 결과에서 상단 강조 표시됩니다.</p></div><button onClick={() => setIsAdmin(false)} className="bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-300 flex items-center gap-1"><X size={14} />닫기</button></div>
               <FormPanel title="상대덱 등록 / 수정" onSave={saveEnemyDeck} onReset={() => setEnemyForm(emptyEnemyForm)} isEditing={!!enemyForm.id}><DeckForm form={enemyForm} setForm={setEnemyForm} mode="enemy" enemyDecks={enemyDecks} /></FormPanel>
               <FormPanel title="카운터덱 등록 / 수정" onSave={saveCounterDeck} onReset={() => setCounterForm(emptyCounterForm)} isEditing={!!counterForm.id}><DeckForm form={counterForm} setForm={setCounterForm} mode="counter" enemyDecks={enemyDecks} /></FormPanel>
             </div>
@@ -479,7 +507,7 @@ const FormPanel: React.FC<{ title: string; children: React.ReactNode; onSave: ()
 );
 
 const DeckForm: React.FC<{ form: FormState; setForm: React.Dispatch<React.SetStateAction<FormState>>; mode: 'enemy' | 'counter'; enemyDecks: EnemyDeck[] }> = ({ form, setForm, mode, enemyDecks }) => {
-  const setValue = (key: keyof FormState, value: string) => setForm(prev => ({ ...prev, [key]: value }));
+  const setValue = (key: keyof FormState, value: string | boolean) => setForm(prev => ({ ...prev, [key]: value }));
   return (
     <div className="grid sm:grid-cols-2 gap-3">
       {mode === 'counter' && <label className="space-y-1 sm:col-span-2"><span className="text-xs text-slate-500 font-bold">연결할 상대덱</span><select value={form.enemyDeckId || ''} onChange={event => setValue('enemyDeckId', event.target.value)} className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-3 text-white focus:outline-none focus:border-primary"><option value="">상대덱 선택</option>{enemyDecks.map(deck => <option key={deck.id} value={deck.id}>{deck.name} ({joinList(deck.heroes)})</option>)}</select></label>}
@@ -490,6 +518,7 @@ const DeckForm: React.FC<{ form: FormState; setForm: React.Dispatch<React.SetSta
       {mode === 'counter' && <TextField label="스킬 순서" value={form.skillOrder || ''} onChange={value => setValue('skillOrder', value)} placeholder="예: 여포1 → 여포2 → 태오1" />}
       <TextField label="앞열 배치" value={form.frontText} onChange={value => setValue('frontText', value)} placeholder="예: 여포" />
       <TextField label="뒷열 배치" value={form.backText} onChange={value => setValue('backText', value)} placeholder="예: 태오 란드그리드" />
+      {mode === 'counter' && <div className="sm:col-span-2 grid sm:grid-cols-2 gap-3 bg-slate-900/50 border border-slate-800 rounded-xl p-3"><label className="flex items-center gap-3 text-sm text-slate-200"><input type="checkbox" checked={!!form.isRecommended} onChange={event => setValue('isRecommended', event.target.checked)} className="w-5 h-5 accent-amber-500" /><span className="font-bold">추천 카운터로 표시</span></label><TextField label="표시 순서" value={form.priorityText || '1'} onChange={value => setValue('priorityText', value)} placeholder="예: 1" /></div>}
       <label className="space-y-1 sm:col-span-2"><span className="text-xs text-slate-500 font-bold">참고사항 / 메모</span><textarea value={form.memo} onChange={event => setValue('memo', event.target.value)} placeholder="장비, 속공순서, 주의 변수 등을 입력" className="w-full min-h-28 bg-slate-900 border border-slate-700 rounded-xl px-3 py-3 text-white focus:outline-none focus:border-primary resize-y" /></label>
     </div>
   );
