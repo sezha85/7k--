@@ -21,6 +21,7 @@ const parseList = (value: string | null) => {
 
 const listText = (value: unknown) => JSON.stringify(Array.isArray(value) ? value : []);
 const autoName = (heroes: string[]) => heroes.map((hero) => (hero || '').trim()[0] || '').join('');
+const comboKey = (heroes: string[]) => heroes.map((hero) => String(hero || '').trim()).filter(Boolean).sort().join('|');
 
 const hasAdmin = (request: Request, env: Env) => {
   const password = request.headers.get('x-admin-password') || '';
@@ -78,6 +79,17 @@ const getData = async (db: D1Database) => {
   };
 };
 
+const findDuplicateEnemy = async (db: D1Database, heroes: string[], exceptId?: string) => {
+  const currentKey = comboKey(heroes);
+  if (!currentKey) return null;
+
+  const enemies = await db.prepare('SELECT id, heroes FROM guild_enemy_decks').all();
+  return (enemies.results || []).find((row: any) => {
+    if (exceptId && String(row.id) === String(exceptId)) return false;
+    return comboKey(parseList(row.heroes)) === currentKey;
+  }) || null;
+};
+
 export const onRequestGet = async ({ env }: { env: Env }) => {
   try {
     return json(await getData(env.DB));
@@ -97,6 +109,9 @@ export const onRequestPost = async ({ request, env }: { request: Request; env: E
     if (body.action === 'createEnemy') {
       const heroes = body.heroes || [];
       const pets = body.pets || [];
+      const duplicate = await findDuplicateEnemy(env.DB, heroes);
+      if (duplicate) return json({ ok: false, code: 'DUPLICATE_ENEMY', message: '이미 등록된 상대덱입니다.' }, 409);
+
       await env.DB.prepare('INSERT INTO guild_enemy_decks (name, heroes, pets, memo) VALUES (?, ?, ?, ?)')
         .bind(body.name || autoName(heroes), listText(heroes), listText(pets), body.memo || '').run();
       return json({ ok: true, ...(await getData(env.DB)) });
@@ -105,6 +120,9 @@ export const onRequestPost = async ({ request, env }: { request: Request; env: E
     if (body.action === 'updateEnemy') {
       const heroes = body.heroes || [];
       const pets = body.pets || [];
+      const duplicate = await findDuplicateEnemy(env.DB, heroes, body.id);
+      if (duplicate) return json({ ok: false, code: 'DUPLICATE_ENEMY', message: '이미 등록된 상대덱입니다.' }, 409);
+
       await env.DB.prepare('UPDATE guild_enemy_decks SET name = ?, heroes = ?, pets = ?, memo = ? WHERE id = ?')
         .bind(body.name || autoName(heroes), listText(heroes), listText(pets), body.memo || '', body.id).run();
       return json({ ok: true, ...(await getData(env.DB)) });
