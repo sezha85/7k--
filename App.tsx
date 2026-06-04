@@ -1,44 +1,8 @@
-import React, { useState, useEffect } from 'react';
-import { HashRouter as Router, Routes, Route } from 'react-router-dom';
+import React, { useEffect, useState } from 'react';
+import { HashRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import Navbar from './components/Navbar';
-import Strategy from './pages/Strategy';
-import Heroes from './pages/Heroes';
-import TierList from './pages/TierList';
-import AIGuide from './pages/AIGuide';
-import Admin from './pages/Admin';
+import GuildWar from './pages/GuildWar';
 import { Lock, ArrowRight } from 'lucide-react';
-import { GameDataProvider, useGameData } from './contexts/GameDataContext';
-
-// Layout Component to access Context
-const MainLayout: React.FC = () => {
-  const { lastUpdated } = useGameData();
-
-  return (
-    <div className="flex flex-col min-h-screen bg-dark text-slate-100 font-sans antialiased selection:bg-primary/30 selection:text-primary">
-      <Navbar />
-      <main className="flex-grow">
-        <Routes>
-          <Route path="/" element={<Strategy />} />
-          <Route path="/heroes" element={<Heroes />} />
-          <Route path="/tier" element={<TierList />} />
-          <Route path="/guide" element={<AIGuide />} />
-          <Route path="/admin" element={<Admin />} />
-        </Routes>
-      </main>
-      <footer className="bg-darker border-t border-slate-800 py-8">
-          <div className="max-w-7xl mx-auto px-4 text-center text-slate-500 text-sm">
-              <p>© 2024 Seven Knights Rebirth Wiki. Unofficial Fan Site.</p>
-              <div className="mt-2 flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-4">
-                  <span>Last Updated: <span className="text-slate-400 font-mono">{lastUpdated}</span></span>
-                  <span className="hidden sm:inline text-slate-700">|</span>
-                  <span>Data source is managed by community.</span>
-                  <a href="#/admin" className="text-slate-700 hover:text-slate-400 transition-colors">Admin</a>
-              </div>
-          </div>
-      </footer>
-    </div>
-  );
-};
 
 const App: React.FC = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -70,10 +34,8 @@ const App: React.FC = () => {
             <div className="bg-primary/20 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
               <Lock className="text-primary" size={32} />
             </div>
-            <h1 className="text-2xl font-bold text-white mb-2">접근 제한</h1>
-            <p className="text-slate-400 text-sm">
-              페이지에 접근하려면 비밀번호를 입력하세요.
-            </p>
+            <h1 className="text-2xl font-bold text-white mb-2">길드전 카운터</h1>
+            <p className="text-slate-400 text-sm">페이지에 접근하려면 비밀번호를 입력하세요.</p>
           </div>
 
           <form onSubmit={handleLogin} className="space-y-4">
@@ -97,20 +59,30 @@ const App: React.FC = () => {
               입장하기 <ArrowRight size={18} />
             </button>
           </form>
-          <div className="mt-6 text-center">
-            <p className="text-slate-600 text-xs">Protected by System</p>
-          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <GameDataProvider>
-      <Router>
-        <MainLayout />
-      </Router>
-    </GameDataProvider>
+    <Router>
+      <div className="flex flex-col min-h-screen bg-dark text-slate-100 font-sans antialiased selection:bg-primary/30 selection:text-primary">
+        <Navbar />
+        <main className="flex-grow">
+          <Routes>
+            <Route path="/" element={<GuildWar />} />
+            <Route path="/guild-war" element={<GuildWar />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </main>
+        <footer className="bg-darker border-t border-slate-800 py-6">
+          <div className="max-w-5xl mx-auto px-4 text-center text-slate-500 text-xs">
+            <p>© 2026 7K Guild War Counter. Unofficial Fan Site.</p>
+            <p className="mt-1">상대덱 검색 · 카운터덱 관리 · 길드전 오더 참고용</p>
+          </div>
+        </footer>
+      </div>
+    </Router>
   );
 };
 
